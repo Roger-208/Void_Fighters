@@ -64,144 +64,74 @@ def send_scores(conn):
 # S'encarrega de gestionar les connexions de cada client, resolent les peticions adequades.
 # Pot retornar les posicions, registrar un nou jugador, o reenviar missatges a altres clients.
 def handle_client(conn, addr):
-
     # Quan s'estableix una nova connexió (un nou client es connecta),
-
     #  es mostra un missatge per consola, indicant l'adreça.
-
     print(f"Connectat amb: {addr}")
-
-
-
     buffer = ""
 
-
-
     # La connexió es manté activa mentre el client no es desconnecti,
-
     # i es van processant les peticions que van arribant.
-
     while True:
-
         try:
-
             # Rep el missatge del client
-
             data = conn.recv(BUFFER_SIZE)
 
-
-
             # Si no arriba informació (s'ha desconnectat el client), s'indica la desconnexió i es tanca el bucle.
-
             # La gestió de la desconnexió es porta a terme al final de la funció.
-
             if not data:
-
                 print("Client desconnectat.")
-
                 break
 
-
-
             # Els missatges es van afegint a un buffer, i es processen quann hi ha un salt de línia, que indica el final del missatge.
-
             buffer += data.decode('utf-8')
 
             # Guarda la línea i el que queda al buffer, per a processar-la.
-
             while '\n' in buffer:
-
                 line, buffer = buffer.split('\n', 1)
-
                 line = line.strip()
-
                 if not line:
-
                     continue
-
-
-
                 try:
-
                     data = json.loads(line)
 
                 except json.JSONDecodeError:
-
                     print(f"JSON no vàlid rebut: {line}")
-
                     continue
 
-
-
                 # Guarda l'acció que es vol realitzar, i farà les accions pertinents segons el cas.
-
                 action = data.get("action")
 
-
-
                 # Envia les puntuacions a l'usuari que les ha demanat.
-
                 if action == "get_puntuacions":
-
                     send_scores(conn)
 
-
-
                 # Crea un nou jugador, l'assigna una ID, i el relaciona amb la seva connexió (IP).
-
                 elif action == "nouJugador":
-
                     register_new_player(conn)
 
-
-
                 # Reenvia les posicions i d'altres informacions a la resta de clients, que la processaran individualment.
-
                 elif action == "posicio":
-
                     player_id = IDaIP.get(conn)
 
-
-
                     # Si el jugador existeix, es reenvia la informació a la resta de clients, junt amb la ID.
-
                     if player_id:
-
                         broadcast_json(conn, {
-
                             "action": "posicio",
-
                             "player_id": player_id,
-
                             "x": data.get("x"),
-
                             "y": data.get("y"),
-
                             "speedx": data.get("speedx"),
-
                             "speedy": data.get("speedy"),
-
                             "angle": data.get("angle")
-
                         })
 
-
-
         # Si hi ha algun error de connexió, es tanca la connexió i es surt del bucle.
-
         except OSError:
-
             break
 
-
-
     # Informa de la desconnexió del client, tanca la connexió i es retira de la llista de clients.
-
-
     print("Removing client and closing connection.")
-
     remove_client(conn)
-
     conn.close()
     
 # Inici del servidor, es queda a l'espera de connexions entrants.
