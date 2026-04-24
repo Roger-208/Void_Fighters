@@ -1,4 +1,4 @@
-# Usadas para mostrar el propio juego
+    # Usadas para mostrar el propio juego
 import pygame
 import math
 import random
