@@ -1,15 +1,4 @@
-version: '3.8'
-
 services:
-  apache:
-    build:
-      context: .
-      dockerfile: Dockerfile.apache
-    ports:
-      - "8080:80"
-    volumes:
-      - ./apache:/var/www/html
-
 
   python_server:
     build:
@@ -17,6 +6,15 @@ services:
       dockerfile: Dockerfile.python
     ports:
       - "65432:65432"
-    stdin_open: true
-    tty: true
-
+    volumes:
+      - ./app:/serverPython
+    restart: unless-stopped
+  apache:
+    build:
+      context: .
+      dockerfile: Dockerfile.apache
+    ports:
+      - "8080:80"
+    volumes:
+      - ./apache:/var/www/html:ro
+    restart: unless-stopped
