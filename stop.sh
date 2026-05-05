@@ -6,4 +6,4 @@ echo "Parant servidor Void Fighters"
 
 docker compose down --rmi all --remove-orphans
 
-echo "Servidor Parat
+echo "Servidor Parat"
