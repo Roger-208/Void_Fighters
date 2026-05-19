@@ -16,6 +16,11 @@ clients = {}
 IDaIP = {}
 state_lock = threading.Lock()
 
+# Event used to request server shutdown
+stop_event = threading.Event()
+# Reference to the listening socket so handler threads can close it to interrupt accept()
+server_socket = None
+
 # Gestionem la conversio de STR a format JSON i l'enviem
 def send_json(conn, data:dict):
     messaje = json.dumps(data) + "\n"
@@ -124,6 +129,22 @@ def handle_client(conn, addr):
                             "speedy": data.get("speedy"),
                             "angle": data.get("angle")
                         })
+                # Permet rebre una ordre de parada local (només localhost)
+                    elif action == "stop_server":
+                        client_ip = addr[0] if addr else None
+                        if client_ip in ("127.0.0.1", "::1"):
+                            try:
+                                send_json(conn, {"action": "stopping"})
+                            except Exception:
+                                pass
+                            # Senyalem l'aturada i tanquem el socket d'escolta per fer fallar accept()
+                            stop_event.set()
+                            try:
+                                if server_socket:
+                                    server_socket.close()
+                            except Exception:
+                                pass
+                            break
 
         # Si hi ha algun error de connexió, es tanca la connexió i es surt del bucle.
         except OSError:
@@ -133,7 +154,7 @@ def handle_client(conn, addr):
     print("Removing client and closing connection.")
     remove_client(conn)
     conn.close()
-    
+
 # Inici del servidor, es queda a l'espera de connexions entrants.
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     # Permet reutilitzar l'adreça immediatament després de tancar el servidor.
@@ -142,12 +163,22 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.bind((HOST, PORT))
     s.listen()
 
+    # Exposeix el socket al context global per poder tancar-lo des d'un fil
+    server_socket = s
+
     print(f"Esperant connexió al port {PORT}...")
 
-    while True:
+    while not stop_event.is_set():
         # Queda esperant a d'altres connexions, i quan aquestes arriben les accepta.
         # Acceptades, se separen en un objecte de connexió (conn) i una adreça (addr), que s'afegeixen en una llista de clients.
-        conn, addr = s.accept()
+        try:
+            conn, addr = s.accept()
+        except OSError:
+            # accept() fallarà quan tanquem el socket per parar el servidor
+            if stop_event.is_set():
+                break
+            else:
+                raise
         with state_lock:
             clients[conn] = addr
 
@@ -155,3 +186,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # Aquest fil cridarà una funció que s'encarregarà de processar-lo, fent les accions pertinents.
         client_thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
         client_thread.start()
+        # Si existeix el fitxer de control i s'ha marcat, també podem aturar el servidor.
+        try:
+            if server_socket:
+                server_socket.close()
+        except Exception:
+            pass
+        break
+
+    print("Servidor aturat.")

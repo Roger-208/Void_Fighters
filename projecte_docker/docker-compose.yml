@@ -8,7 +8,6 @@ services:
       - "65432:65432"
     volumes:
       - ./app:/serverPython
-    restart: unless-stopped
   apache:
     build:
       context: .
